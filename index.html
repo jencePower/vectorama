@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <title>VECTORAMA</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game">
+    <canvas id="scene"></canvas>
+
+    <!-- Screen-space effect overlays (CSS driven) -->
+    <div id="fx">
+      <div id="scanlines"></div>
+      <div id="vignette"></div>
+      <div id="flash"></div>
+    </div>
+
+    <!-- Minimal arcade HUD -->
+    <div id="hud" class="hidden">
+      <div id="hud-tl">
+        <div id="score">SCORE 00000000</div>
+        <div id="speed">SPEED 1.0</div>
+      </div>
+      <div id="hud-tr">
+        <div id="mult">X 1.0</div>
+        <div id="energy"><span>&#9679;</span><span>&#9679;</span><span>&#9679;</span></div>
+      </div>
+      <div id="banner"></div>
+      <div id="zonetag"></div>
+    </div>
+
+    <!-- Start screen -->
+    <div id="start" class="screen">
+      <h1 id="title" data-text="VECTORAMA">VECTORAMA</h1>
+      <p id="enter">TOUCH TO ENTER</p>
+      <p class="tiny">HEADPHONES RECOMMENDED</p>
+      <p class="brand">BATIDA SYSTEMS</p>
+    </div>
+
+    <!-- Boot sequence -->
+    <div id="boot" class="screen hidden"><pre id="bootlog"></pre></div>
+
+    <!-- Game over -->
+    <div id="over" class="screen hidden">
+      <h1 id="over-title" data-text="VECTORAMA">VECTORAMA</h1>
+      <p id="over-sub">SIGNAL LOST</p>
+      <pre id="over-stats"></pre>
+      <p id="reenter">TOUCH TO RE-ENTER</p>
+    </div>
+
+    <!-- Portrait gate -->
+    <div id="rotate">
+      <div class="rot-big">ROTATE DEVICE</div>
+      <div class="rot-small">VECTORAMA REQUIRES HORIZONTAL REALITY</div>
+    </div>
+
+    <!-- Mute -->
+    <button id="mute" aria-label="mute">&#9835;</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
