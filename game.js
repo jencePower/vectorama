@@ -18,25 +18,25 @@
    * ------------------------------------------------------------------ */
   const CFG = {
     playerZ: -7,
-    spawnZ: -400,          // where world objects appear
+    spawnZ: -480,          // where world objects appear (deeper = longer warp)
     recycleZ: 22,          // behind camera -> recycle
     moveX: 34,             // horizontal steering half-range
     moveUp: 15,
     moveDown: -19,
-    fovBase: 80,
-    fovMax: 116,
-    worldSpeed: 96,        // world units / sec at speed factor 1
-    speedStart: 1.35,
-    speedMin: 0.85,
-    speedMax: 6.6,
-    speedDecay: 0.16,      // factor lost per second
-    boostGate: 0.85,
-    normalGate: 0.10,
+    fovBase: 82,
+    fovMax: 134,
+    worldSpeed: 150,       // world units / sec at speed factor 1
+    speedStart: 1.5,
+    speedMin: 0.9,
+    speedMax: 9.5,
+    speedDecay: 0.18,      // factor lost per second
+    boostGate: 1.1,
+    normalGate: 0.12,
     energy: 3,
-    invuln: 1.1,
-    collideR: 3.2,
-    nearMissR: 6.6,
-    fireRate: 0.085,
+    invuln: 1.15,
+    collideR: 3.1,
+    nearMissR: 7.6,
+    fireRate: 0.07,
   };
 
   // colour zones (hex arrays). last of each acts as danger accent.
@@ -53,11 +53,11 @@
 
   // quality tiers (spawn caps). buffers allocated at MAX regardless.
   const QUAL = {
-    HIGH: { dpr: 2.0, streaks: 520, targets: 46, part: 1.0 },
-    MED:  { dpr: 1.5, streaks: 320, targets: 36, part: 0.72 },
-    LOW:  { dpr: 1.0, streaks: 180, targets: 24, part: 0.5 },
+    HIGH: { dpr: 2.0, streaks: 1100, targets: 64, part: 1.0 },
+    MED:  { dpr: 1.5, streaks: 620, targets: 46, part: 0.72 },
+    LOW:  { dpr: 1.0, streaks: 300, targets: 30, part: 0.5 },
   };
-  const MAX = { streak: 520, part: 3600, proj: 60, target: 46, gate: 18, pow: 6 };
+  const MAX = { streak: 1100, part: 6000, proj: 80, target: 64, gate: 22, pow: 6 };
 
   /* ------------------------------------------------------------------ *
    *  DOM                                                               *
@@ -105,7 +105,7 @@
     renderer = new THREE.WebGLRenderer({ canvas: D.scene, antialias: false, alpha: false, powerPreference: 'high-performance' });
     renderer.setClearColor(0x000000, 1);
     scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000308, 0.0058);
+    scene.fog = new THREE.FogExp2(0x000308, 0.0049);
     camera = new THREE.PerspectiveCamera(CFG.fovBase, innerWidth / innerHeight, 0.1, 800);
     camera.position.set(0, 1.6, 6);
     detectTier();
@@ -192,15 +192,15 @@
   /* shared geometries -------------------------------------------------*/
   const GEO = {};
   function shared() {
-    GEO.ring = new THREE.TorusGeometry(1, 0.05, 8, 40);
-    GEO.ringFat = new THREE.TorusGeometry(1, 0.12, 8, 48);
+    GEO.ring = new THREE.TorusGeometry(1, 0.05, 8, 48);
+    GEO.ringFat = new THREE.TorusGeometry(1, 0.12, 10, 64);
     GEO.box = new THREE.BoxGeometry(1, 1, 1);
     GEO.octa = new THREE.OctahedronGeometry(1);
     GEO.tetra = new THREE.TetrahedronGeometry(1);
-    GEO.icosa = new THREE.IcosahedronGeometry(1);
+    GEO.icosa = new THREE.IcosahedronGeometry(1, 1);
     GEO.cyl = new THREE.CylinderGeometry(1, 1, 1, 6);
-    GEO.diamond = new THREE.OctahedronGeometry(1);
-    GEO.torusHi = new THREE.TorusGeometry(1, 0.06, 6, 30);
+    GEO.diamond = new THREE.OctahedronGeometry(1, 1);
+    GEO.torusHi = new THREE.TorusGeometry(1, 0.05, 8, 48);
     for (const k in GEO) GEO[k]._keep = true; // never dispose shared geometry
   }
 
@@ -218,33 +218,34 @@
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.setDrawRange(0, S.q.streaks * 2);
-    const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9,
+    const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 1.0,
       blending: THREE.AdditiveBlending, depthWrite: false, fog: true });
     streaks = new THREE.LineSegments(g, m); streaks.frustumCulled = false; scene.add(streaks);
   }
   function resetStreak(i, spread, pos) {
-    const a = Math.random() * TAU, r = rand(6, 130);
+    const a = Math.random() * TAU, r = rand(5, 175);
     streakData[i * 4] = Math.cos(a) * r;
     streakData[i * 4 + 1] = Math.sin(a) * r * 0.7;
-    streakData[i * 4 + 2] = spread ? rand(CFG.spawnZ, CFG.recycleZ) : CFG.spawnZ - rand(0, 120);
-    streakData[i * 4 + 3] = rand(0.85, 1.25);
+    streakData[i * 4 + 2] = spread ? rand(CFG.spawnZ, CFG.recycleZ) : CFG.spawnZ - rand(0, 180);
+    streakData[i * 4 + 3] = rand(0.8, 1.35);
   }
   function updateStreaks(dt) {
     const p = streaks.geometry.attributes.position.array;
     const c = streaks.geometry.attributes.color.array;
-    const len = 5 + S.speedN * 70 + S.overdrive * 40;
+    const len = 14 + S.speedN * 175 + S.overdrive * 95;
     const pal = S.palette;
     for (let i = 0; i < S.q.streaks; i++) {
-      let z = streakData[i * 4 + 2] + S.world * streakData[i * 4 + 3] * (1.05 + S.speedN * 0.5);
+      let z = streakData[i * 4 + 2] + S.world * streakData[i * 4 + 3] * (1.12 + S.speedN * 0.7);
       if (z > CFG.recycleZ) { resetStreak(i, false); z = streakData[i * 4 + 2]; }
       streakData[i * 4 + 2] = z;
       const x = streakData[i * 4], y = streakData[i * 4 + 1];
       const o = i * 6;
       p[o] = x; p[o + 1] = y; p[o + 2] = z;
       p[o + 3] = x; p[o + 4] = y; p[o + 5] = z - len;
-      _c.setHex(pick(pal)); const br = 0.5 + Math.random() * 0.5;
+      if (Math.random() < 0.10) { _c.setHex(0xffffff); } else { _c.setHex(pick(pal)); }
+      const br = 0.74 + Math.random() * 0.26;
       c[o] = _c.r * br; c[o + 1] = _c.g * br; c[o + 2] = _c.b * br;
-      c[o + 3] = _c.r * 0.05; c[o + 4] = _c.g * 0.05; c[o + 5] = _c.b * 0.05;
+      c[o + 3] = _c.r * 0.04; c[o + 4] = _c.g * 0.04; c[o + 5] = _c.b * 0.04;
     }
     streaks.geometry.attributes.position.needsUpdate = true;
     streaks.geometry.attributes.color.needsUpdate = true;
@@ -253,11 +254,11 @@
   /* ------------------------------------------------------------------ *
    *  GRID  (scrolling neon floor + ceiling)                            *
    * ------------------------------------------------------------------ */
-  let gridFloor, gridCeil, gridCell = 22, gridVisible = true;
+  let gridFloor, gridCeil, gridCell = 16, gridVisible = true;
   function makeGrid(y, color) {
-    const cells = 26, span = 420, half = span / 2, w = 320;
+    const cells = 42, w = 360, lines = 22;
     const pts = [];
-    for (let i = -13; i <= 13; i++) { const x = i * (w / 26); pts.push(new THREE.Vector3(x, y, -span + 20), new THREE.Vector3(x, y, 40)); }
+    for (let i = -lines; i <= lines; i++) { const x = i * (w / (lines * 2)); pts.push(new THREE.Vector3(x, y, -cells * gridCell + 20), new THREE.Vector3(x, y, 40)); }
     for (let j = 0; j <= cells; j++) { const z = 40 - j * gridCell; pts.push(new THREE.Vector3(-w / 2, y, z), new THREE.Vector3(w / 2, y, z)); }
     const g = new THREE.BufferGeometry().setFromPoints(pts);
     const m = lineMat(color, 0.6);
@@ -271,6 +272,8 @@
     let z = (gridFloor.position.z + S.world) % gridCell;
     gridFloor.position.z = z; gridCeil.position.z = z;
     gridFloor.visible = gridCeil.visible = gridVisible;
+    const puls = 0.42 + S.speedN * 0.42 + Math.abs(Math.sin(S.t * 3.2)) * 0.22;
+    gridFloor.material.opacity = puls; gridCeil.material.opacity = puls * 0.85;
   }
 
   /* ------------------------------------------------------------------ *
@@ -319,7 +322,7 @@
     for (let i = 0; i < n; i++) {
       const a = Math.random() * TAU, b = rand(-1, 1), s = rand(0.3, 1) * power;
       const vx = Math.cos(a) * s * (1 - Math.abs(b)), vy = b * s, vz = Math.sin(a) * s * (1 - Math.abs(b)) - rand(0, power * 0.4);
-      spawnPart(x, y, z, vx * 22, vy * 22, vz * 22, chance(0.3) ? 0xffffff : hex, rand(0.4, 0.9), rand(1.2, 2.8));
+      spawnPart(x, y, z, vx * 24, vy * 24, vz * 24, chance(0.32) ? 0xffffff : hex, rand(0.45, 1.0), rand(1.6, 3.6));
     }
   }
 
@@ -355,7 +358,7 @@
       projData[i * 4 + 2] -= spd * dt;
       if (projData[i * 4 + 2] < CFG.spawnZ) { projData[i * 4 + 3] = 0; hideInst(proj, i); continue; }
       _q.position.set(projData[i * 4], projData[i * 4 + 1], projData[i * 4 + 2]);
-      _q.rotation.set(0, 0, 0); _q.scale.set(1, 1, 1 + S.speedN * 1.5); _q.updateMatrix();
+      _q.rotation.set(0, 0, 0); _q.scale.set(1, 1, 1 + S.speedN * 2.4); _q.updateMatrix();
       proj.setMatrixAt(i, _q.matrix);
     }
     proj.instanceMatrix.needsUpdate = true;
@@ -381,13 +384,13 @@
       if (t.alive) continue;
       const g = pick([GEO.box, GEO.octa, GEO.tetra, GEO.diamond, GEO.icosa, GEO.torusHi]);
       t.mesh.geometry = g;
-      const s = opts.scale || rand(1.6, 3.4);
+      const s = opts.scale || (chance(0.14) ? rand(5.5, 9.5) : rand(1.8, 3.8));
       t.mesh.scale.setScalar(s); t.r = s * 1.05;
       t.mesh.position.set(opts.x != null ? opts.x : rand(-CFG.moveX, CFG.moveX),
         opts.y != null ? opts.y : rand(CFG.moveDown + 4, CFG.moveUp - 2), CFG.spawnZ + rand(-30, 0));
       t.mesh.material.color.setHex(opts.color || pick(S.palette));
       t.vx = opts.vx != null ? opts.vx : rand(-6, 6);
-      t.vy = opts.vy || 0; t.spin = rand(1, 4) * (chance(0.5) ? 1 : -1);
+      t.vy = opts.vy || 0; t.spin = rand(2, 7) * (chance(0.5) ? 1 : -1);
       t.alive = true; t.near = false; t.mesh.visible = true;
       return t;
     }
@@ -423,7 +426,7 @@
   }
   function killTarget(t, silent) {
     t.alive = false; t.mesh.visible = false;
-    explode(t.mesh.position.x, t.mesh.position.y, t.mesh.position.z, t.mesh.material.color.getHex(), 14, 1.1);
+    explode(t.mesh.position.x, t.mesh.position.y, t.mesh.position.z, t.mesh.material.color.getHex(), 24, 1.3);
     if (!silent) { addScore(120, true); Audio.hit(); bumpMult(0.04); }
   }
 
@@ -452,16 +455,16 @@
       g.extra.forEach(e => { g.grp.remove(e); if (e.material) e.material.dispose(); });
       g.extra.length = 0;
       if (boost) {
-        for (let k = 1; k <= 3; k++) {
+        for (let k = 1; k <= 5; k++) {
           const e = new THREE.Mesh(GEO.ring, neonMat(pick(S.palette), 0.85));
-          e.scale.setScalar(r + k * 2.5); e.position.z = k * 3;
+          e.scale.setScalar(r + k * 2.4); e.position.z = k * 3.2;
           g.grp.add(e); g.extra.push(e);
         }
         // chevrons
-        for (let k = 0; k < 8; k++) {
+        for (let k = 0; k < 12; k++) {
           const bar = new THREE.Mesh(GEO.box, neonMat(pick(S.palette), 0.9));
-          const a = (k / 8) * TAU; bar.position.set(Math.cos(a) * (r + 1), Math.sin(a) * (r + 1), 0);
-          bar.scale.set(0.5, 3, 0.5); bar.rotation.z = a; g.grp.add(bar); g.extra.push(bar);
+          const a = (k / 12) * TAU; bar.position.set(Math.cos(a) * (r + 1), Math.sin(a) * (r + 1), 0);
+          bar.scale.set(0.5, 3.4, 0.5); bar.rotation.z = a; g.grp.add(bar); g.extra.push(bar);
         }
       }
       return g;
@@ -496,7 +499,7 @@
     }
   }
   function gateBurst(x, y, hex, big) {
-    const n = big ? 60 : 24;
+    const n = big ? 96 : 40;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * TAU, sp = big ? rand(18, 40) : rand(10, 22);
       spawnPart(x, y, CFG.playerZ, Math.cos(a) * sp, Math.sin(a) * sp, rand(-4, 8), chance(0.4) ? 0xffffff : hex, rand(0.4, 0.8), big ? 2.6 : 1.8);
@@ -546,7 +549,7 @@
   }
   function collectPower(p) {
     p.alive = false; p.grp.visible = false;
-    explode(p.grp.position.x, p.grp.position.y, CFG.playerZ, p.type.color, 40, 1.6);
+    explode(p.grp.position.x, p.grp.position.y, CFG.playerZ, p.type.color, 70, 1.9);
     setBanner(p.type.id); flash('#fff', 0.6);
     if (p.type.id === 'OVERDRIVE') { S.overdrive = 8; S.speed = clamp(S.speed + 1.4, 0, CFG.speedMax); Audio.overdrive(); bumpMult(1.5); }
     else if (p.type.id === 'SHIELD') { S.invuln = Math.max(S.invuln, 6); Audio.powerup(); }
@@ -583,8 +586,8 @@
     shipCore.material.color.setHex(S.palette[0]);
     // engine trail
     if (S.mode === 'play') {
-      for (let k = 0; k < 2; k++) spawnPart(ship.x + rand(-0.6, 0.6), ship.y + rand(-0.4, 0.4), CFG.playerZ + 1.6,
-        rand(-2, 2), rand(-2, 2), rand(20, 40), chance(0.5) ? S.palette[0] : 0xffffff, rand(0.2, 0.45), rand(1.2, 2.2));
+      for (let k = 0; k < 3; k++) spawnPart(ship.x + rand(-0.7, 0.7), ship.y + rand(-0.5, 0.5), CFG.playerZ + 1.6,
+        rand(-2.5, 2.5), rand(-2.5, 2.5), rand(24, 48), chance(0.5) ? S.palette[0] : 0xffffff, rand(0.22, 0.5), rand(1.6, 2.8));
     }
   }
 
@@ -600,22 +603,22 @@
   }
 
   MEGA.RADIAL_BURST = () => {
-    const g = evGroup(); const n = 180; const p = pal();
+    const g = evGroup(); const n = 300; const p = pal();
     const seg = [];
-    for (let i = 0; i < n; i++) { const a = (i / n) * TAU, r = rand(40, 160); seg.push(new THREE.Vector3(0, 0, 0), new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); }
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU, r = rand(50, 230); seg.push(new THREE.Vector3(0, 0, 0), new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); }
     const ls = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg), lineMat(pick(p), 0.8)); ls.frustumCulled = false; g.add(ls);
     return { g, dur: 4, spin: rand(-1, 1), update(dt) { g.rotation.z += this.spin * dt; ls.material.color.setHex(pick(p)); } };
   };
   MEGA.GIANT_STAR = () => {
     const g = evGroup(); const p = pal();
-    const s = new THREE.LineSegments(starGeo(rand(50, 80), rint(5, 9), rand(0.4, 0.6)), lineMat(pick(p), 1)); s.frustumCulled = false; g.add(s);
+    const s = new THREE.LineSegments(starGeo(rand(70, 120), rint(5, 9), rand(0.4, 0.6)), lineMat(pick(p), 1)); s.frustumCulled = false; g.add(s);
     const s2 = new THREE.LineSegments(s.geometry, lineMat(pick(p), 0.6)); s2.scale.setScalar(0.6); s2.frustumCulled = false; g.add(s2);
     return { g, dur: 6, update(dt) { g.rotation.z += 0.5 * dt; s2.rotation.z -= 1.2 * dt; } };
   };
   MEGA.FRAME_TUNNEL = () => {
-    const g = evGroup(); const p = pal(); const n = 46; const sq = frameGeo(1, 0.06);
+    const g = evGroup(); const p = pal(); const n = 78; const sq = frameGeo(1, 0.06);
     const m = new THREE.InstancedMesh(sq, neonMat(0xffffff, 0.9), n); m.frustumCulled = false; g.add(m);
-    const twist = rand(-0.15, 0.15), rad = rand(24, 40);
+    const twist = rand(-0.18, 0.18), rad = rand(30, 52);
     for (let i = 0; i < n; i++) {
       _q.position.set(Math.sin(i * 0.3) * 3, Math.cos(i * 0.3) * 3, -i * 9);
       _q.rotation.set(0, 0, i * twist); _q.scale.setScalar(rad + Math.sin(i * 0.4) * 6); _q.updateMatrix();
@@ -625,9 +628,9 @@
     return { g, dur: 7, update(dt) { g.rotation.z += 0.3 * dt; } };
   };
   MEGA.RAINBOW_RINGS = () => {
-    const g = evGroup(); const n = 22;
+    const g = evGroup(); const n = 40;
     const m = new THREE.InstancedMesh(GEO.ringFat, neonMat(0xffffff, 0.95), n); m.frustumCulled = false; g.add(m);
-    const rad = rand(16, 26);
+    const rad = rand(18, 30);
     for (let i = 0; i < n; i++) {
       _q.position.set(0, 0, -i * 14); _q.rotation.set(0, 0, i * 0.2); _q.scale.setScalar(rad + Math.sin(i) * 4); _q.updateMatrix();
       m.setMatrixAt(i, _q.matrix); _c.setHSL((i / n + Math.random() * 0.02) % 1, 1, 0.55); m.setColorAt(i, _c);
@@ -637,44 +640,44 @@
   };
   MEGA.POLYGON_EXPLODE = () => {
     const g = evGroup(); const p = pal();
-    const core = new THREE.Mesh(GEO.icosa, wireMat(pick(p), 1)); core.scale.setScalar(20); g.add(core);
-    return { g, dur: 5, blown: false, update(dt) { g.rotation.x += dt; g.rotation.y += 1.4 * dt; core.scale.multiplyScalar(1 + dt * 0.4);
-      if (!this.blown && g.position.z > -120) { this.blown = true; core.visible = false; explode(g.position.x, g.position.y, g.position.z, pick(p), 90, 2.4); flash('#fff', 0.5); } } };
+    const core = new THREE.Mesh(GEO.icosa, wireMat(pick(p), 1)); core.scale.setScalar(32); g.add(core);
+    return { g, dur: 5, blown: false, update(dt) { g.rotation.x += dt; g.rotation.y += 1.4 * dt; core.scale.multiplyScalar(1 + dt * 0.5);
+      if (!this.blown && g.position.z > -120) { this.blown = true; core.visible = false; explode(g.position.x, g.position.y, g.position.z, pick(p), 160, 2.8); flash('#fff', 0.6); S.shake = Math.max(S.shake, 1); } } };
   };
   MEGA.CHECKER_WAVE = () => {
     const g = evGroup(); const p = pal();
-    const geo = new THREE.PlaneGeometry(300, 300, 40, 40);
+    const geo = new THREE.PlaneGeometry(440, 440, 48, 48);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: checkerTex(pick(p), 0x000000), side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: true }));
     mesh.rotation.x = -Math.PI / 2.6; mesh.position.y = -16; g.add(mesh);
     const base = geo.attributes.position.array.slice();
-    return { g, dur: 7, geo, base, update(dt) { const a = geo.attributes.position.array; for (let i = 0; i < a.length; i += 3) { a[i + 2] = Math.sin(this._t * 3 + base[i] * 0.05) * 14; } geo.attributes.position.needsUpdate = true; this._t = (this._t || 0) + dt; } };
+    return { g, dur: 7, geo, base, update(dt) { const a = geo.attributes.position.array; for (let i = 0; i < a.length; i += 3) { a[i + 2] = Math.sin(this._t * 3.2 + base[i] * 0.05) * 26; } geo.attributes.position.needsUpdate = true; this._t = (this._t || 0) + dt; } };
   };
   MEGA.VECTOR_CITY = () => {
-    const g = evGroup(); const p = pal(); const n = 40;
+    const g = evGroup(); const p = pal(); const n = 68;
     const m = new THREE.InstancedMesh(GEO.box, wireMat(0xffffff, 0.9), n); m.frustumCulled = false; g.add(m);
     for (let i = 0; i < n; i++) {
-      const side = i % 2 ? 1 : -1, h = rand(20, 80);
-      _q.position.set(side * rand(28, 50), -15 + h / 2, -((i >> 1) * 22) - rand(0, 8));
-      _q.rotation.set(0, 0, 0); _q.scale.set(rand(8, 16), h, rand(8, 16)); _q.updateMatrix();
+      const side = i % 2 ? 1 : -1, h = rand(30, 130);
+      _q.position.set(side * rand(26, 52), -15 + h / 2, -((i >> 1) * 20) - rand(0, 8));
+      _q.rotation.set(0, 0, 0); _q.scale.set(rand(8, 18), h, rand(8, 18)); _q.updateMatrix();
       m.setMatrixAt(i, _q.matrix); m.setColorAt(i, _c.setHex(pick(p)));
     }
     m.instanceColor.needsUpdate = true;
     return { g, dur: 7, update() {} };
   };
   MEGA.KALEIDOSCOPE = () => {
-    const g = evGroup(); const p = pal(); const arms = rint(6, 10);
+    const g = evGroup(); const p = pal(); const arms = rint(8, 14);
     for (let k = 0; k < arms; k++) {
-      const seg = []; for (let i = 0; i < 6; i++) { const r = 10 + i * 12; seg.push(new THREE.Vector3(r, 0, -i * 6), new THREE.Vector3(r + 8, 8, -i * 6)); }
+      const seg = []; for (let i = 0; i < 8; i++) { const r = 10 + i * 13; seg.push(new THREE.Vector3(r, 0, -i * 6), new THREE.Vector3(r + 9, 9, -i * 6)); }
       const ls = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg), lineMat(pick(p), 0.9)); ls.rotation.z = (k / arms) * TAU; ls.frustumCulled = false; g.add(ls);
     }
     return { g, dur: 6, update(dt) { g.rotation.z += 0.9 * dt; g.children.forEach((c, i) => c.rotation.z += 0); } };
   };
   MEGA.LASER_FOREST = () => {
-    const g = evGroup(); const p = pal(); const n = 44;
+    const g = evGroup(); const p = pal(); const n = 80;
     const m = new THREE.InstancedMesh(GEO.box, neonMat(0xffffff, 0.85), n); m.frustumCulled = false; g.add(m);
     for (let i = 0; i < n; i++) {
-      let x = rand(-70, 70); if (Math.abs(x) < 12) x += 24 * Math.sign(x || 1);
-      _q.position.set(x, rand(-6, 6), -rand(0, 300)); _q.rotation.set(0, 0, 0); _q.scale.set(rand(0.4, 1), rand(40, 90), rand(0.4, 1)); _q.updateMatrix();
+      let x = rand(-80, 80); if (Math.abs(x) < 12) x += 24 * Math.sign(x || 1);
+      _q.position.set(x, rand(-6, 6), -rand(0, 340)); _q.rotation.set(0, 0, 0); _q.scale.set(rand(0.4, 1.1), rand(50, 120), rand(0.4, 1.1)); _q.updateMatrix();
       m.setMatrixAt(i, _q.matrix); m.setColorAt(i, _c.setHex(pick(p)));
     }
     m.instanceColor.needsUpdate = true;
@@ -682,22 +685,22 @@
   };
   MEGA.VOID_MONUMENT = () => {
     const g = evGroup(); const p = pal();
-    const geo = new THREE.TorusKnotGeometry(20, 5, 90, 12, rint(2, 4), rint(3, 5));
+    const geo = new THREE.TorusKnotGeometry(28, 6, 120, 14, rint(2, 4), rint(3, 5));
     const knot = new THREE.Mesh(geo, wireMat(pick(p), 1)); g.add(knot);
     gridVisible = false;
     return { g, dur: 7, update(dt) { knot.rotation.x += 0.4 * dt; knot.rotation.y += 0.6 * dt; }, cleanup() { gridVisible = true; } };
   };
   MEGA.GEOMETRY_STORM = () => {
-    const g = evGroup(); const p = pal(); const n = 44;
+    const g = evGroup(); const p = pal(); const n = 80;
     const m = new THREE.InstancedMesh(GEO.octa, wireMat(0xffffff, 0.9), n); m.frustumCulled = false; g.add(m);
     const data = [];
-    for (let i = 0; i < n; i++) { const a = Math.random() * TAU, r = rand(20, 55); data.push({ a, r, z: -rand(0, 300), s: rand(2, 6) }); m.setColorAt(i, _c.setHex(pick(p))); }
+    for (let i = 0; i < n; i++) { const a = Math.random() * TAU, r = rand(22, 62); data.push({ a, r, z: -rand(0, 340), s: rand(2.5, 8) }); m.setColorAt(i, _c.setHex(pick(p))); }
     m.instanceColor.needsUpdate = true;
     return { g, dur: 6, update(dt) { for (let i = 0; i < n; i++) { const d = data[i]; d.a += dt * 0.8; _q.position.set(Math.cos(d.a) * d.r, Math.sin(d.a) * d.r, d.z); _q.rotation.set(d.a, d.a, 0); _q.scale.setScalar(d.s); _q.updateMatrix(); m.setMatrixAt(i, _q.matrix); } m.instanceMatrix.needsUpdate = true; } };
   };
   MEGA.CHROMA_COLLAPSE = () => {
-    const g = evGroup(); const p = pal(); const n = 120; const seg = [];
-    for (let i = 0; i < n; i++) { const a = (i / n) * TAU, r = rand(60, 140); seg.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0), new THREE.Vector3(Math.cos(a) * (r + 10), Math.sin(a) * (r + 10), 0)); }
+    const g = evGroup(); const p = pal(); const n = 220; const seg = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU, r = rand(70, 170); seg.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0), new THREE.Vector3(Math.cos(a) * (r + 12), Math.sin(a) * (r + 12), 0)); }
     const geo = new THREE.BufferGeometry().setFromPoints(seg); const base = geo.attributes.position.array.slice();
     const ls = new THREE.LineSegments(geo, lineMat(pick(p), 0.9)); ls.frustumCulled = false; g.add(ls);
     return { g, dur: 4.5, _t: 0, done2: false, update(dt) { this._t += dt; const k = this._t / 2.2; const a = geo.attributes.position.array;
@@ -712,6 +715,7 @@
     name = name || pick(MEGA_KEYS);
     const ev = MEGA[name](); ev.name = name; ev.t = 0; S.mega = ev;
     setBanner('');
+    flash('#fff', 0.55); rgbSplit(); S.shake = Math.max(S.shake, 0.9); S.roll = rand(-0.22, 0.22);
     Audio.zone();
   }
   function endMega() { if (!S.mega) return; if (S.mega.cleanup) S.mega.cleanup(); disposeGroup(S.mega.g); S.mega = null; }
@@ -747,7 +751,7 @@
     document.documentElement.style.setProperty('--neon', '#' + _c.setHex(z.cols[0]).getHexString());
     document.documentElement.style.setProperty('--hot', '#' + _c.setHex(z.cols[1] || z.cols[0]).getHexString());
     setZoneTag('ZONE ' + String(S.zone + 1).padStart(2, '0') + '  ' + z.name);
-    flash('#fff', 0.6);
+    flash('#fff', 0.7); rgbSplit(); S.shake = Math.max(S.shake, 0.7); S.roll = rand(-0.16, 0.16);
   }
   function rotatePalette() { S.palette = S.palette.slice(); for (let i = 0; i < S.palette.length; i++) { _c.setHex(S.palette[i]); const hsl = {}; _c.getHSL(hsl); _c.setHSL((hsl.h + 0.33) % 1, 1, 0.55); S.palette[i] = _c.getHex(); } }
 
@@ -771,8 +775,7 @@
     }
     // mega scheduling
     S.megaCool -= dt;
-    if (!S.mega && S.megaCool <= 0 && S.section !== 'void') { /* wait for void */ }
-    if (!S.mega && S.section === 'void' && S.megaCool <= 0) { startMega(); S.megaCool = rand(12, 18) / (0.8 + S.speedN); }
+    if (!S.mega && (S.section === 'void' || (S.section === 'peak' && chance(dt * 0.45))) && S.megaCool <= 0) { startMega(); S.megaCool = rand(6, 11) / (0.8 + S.speedN); }
     // overdrive powerup occasionally
     if (chance(dt * 0.03) && !powerups.some(p => p.alive)) spawnPowerup();
   }
@@ -784,9 +787,9 @@
     else { spawnGate(false); }
     if (local % 8 === 0) spawnGate(true);
     // targets
-    const dens = S.section === 'peak' ? 3 : 1;
+    const dens = S.section === 'peak' ? 4 : 2;
     if (local % 2 === 1) for (let k = 0; k < dens; k++) spawnTarget();
-    if (S.section === 'peak' && chance(0.3)) formation();
+    if (S.section === 'peak' && chance(0.45)) formation();
   }
   function formation() {
     const cx = rand(-14, 14), t = rint(0, 2);
@@ -810,7 +813,7 @@
     S.speed = clamp(S.speed * 0.55, CFG.speedMin, CFG.speedMax);
     S.mult = Math.max(1, S.mult * 0.4); S.combo = 0; S.invuln = CFG.invuln;
     S.shake = 1; flash('#ff0033', 0.9); rgbSplit();
-    explode(x, y, CFG.playerZ, S.danger, 30, 1.6); Audio.damage();
+    explode(x, y, CFG.playerZ, S.danger, 46, 1.8); Audio.damage();
     if (S.energy <= 0) beginDeath();
   }
 
@@ -838,18 +841,18 @@
   function updateCamera(dt) {
     S.speedN = clamp((S.speed - CFG.speedMin) / (CFG.speedMax - CFG.speedMin), 0, 1);
     const odN = S.overdrive > 0 ? 1 : 0;
-    let fov = CFG.fovBase + S.speedN * (CFG.fovMax - CFG.fovBase) + fovPulse * 8 + odN * 6;
+    let fov = CFG.fovBase + S.speedN * (CFG.fovMax - CFG.fovBase) + fovPulse * 10 + odN * 12;
     fovPulse *= 0.9;
     camera.fov = lerp(camera.fov, fov, 1 - Math.exp(-dt * 6)); camera.updateProjectionMatrix();
     camera.position.x = lerp(camera.position.x, ship.x * 0.14, 1 - Math.exp(-dt * 5));
     camera.position.y = lerp(camera.position.y, 1.6 + ship.y * 0.1, 1 - Math.exp(-dt * 5));
-    const shakeAmt = (S.shake * 0.6 + S.speedN * 0.12 + odN * 0.2);
+    const shakeAmt = (S.shake * 0.7 + S.speedN * 0.16 + odN * 0.26);
     camera.position.x += (Math.random() - 0.5) * shakeAmt;
     camera.position.y += (Math.random() - 0.5) * shakeAmt;
     S.shake *= 0.86;
-    camera.rotation.z = lerp(camera.rotation.z, -ship.vx * 0.006 + S.roll, 1 - Math.exp(-dt * 4));
     camera.lookAt(ship.x * 0.3, ship.y * 0.2, -60);
-    camera.rotation.z += -ship.vx * 0.004;
+    camera.rotation.z += -ship.vx * 0.004 + S.roll;
+    S.roll *= 0.9;
   }
 
   /* ------------------------------------------------------------------ *
@@ -918,8 +921,8 @@
     S.mode = 'dying'; S.dieT = 0; S.freeze = 0.16;
     Audio.gameover();
     setTimeout(() => {
-      explode(ship.x, ship.y, CFG.playerZ, S.palette[0], 120, 2.6);
-      explode(ship.x, ship.y, CFG.playerZ, 0xffffff, 60, 1.8);
+      explode(ship.x, ship.y, CFG.playerZ, S.palette[0], 200, 3.0);
+      explode(ship.x, ship.y, CFG.playerZ, 0xffffff, 110, 2.1);
       shipGrp.visible = false; flash('#fff', 1); D.flash.classList.add('invert');
     }, 160);
   }
@@ -948,7 +951,7 @@
   function resetGame() {
     S.speed = CFG.speedStart; S.score = 0; S.mult = 1; S.combo = 0; S.energy = CFG.energy;
     S.invuln = 0; S.overdrive = 0; S.beat = 0; S.beatClock = 0; S.phrase = 0; S.section = 'build';
-    S.megaCool = 5; S.shake = 0; S.roll = 0; S.dieT = 0; S.freeze = 0;
+    S.megaCool = 3; S.shake = 0; S.roll = 0; S.dieT = 0; S.freeze = 0;
     S.stats = { gates: 0, near: 0, maxSpeed: 1 };
     ship.x = ship.tx = 0; ship.y = ship.ty = -2;
     shipGrp.visible = true; camera.fov = CFG.fovBase; camera.updateProjectionMatrix();

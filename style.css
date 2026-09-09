@@ -32,7 +32,7 @@ html,body{
 #fx{ position:absolute; inset:0; pointer-events:none; z-index:20; }
 
 #scanlines{
-  position:absolute; inset:0; opacity:.16; mix-blend-mode:overlay;
+  position:absolute; inset:0; opacity:.22; mix-blend-mode:overlay;
   background:repeating-linear-gradient(
     0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
     rgba(0,0,0,.9) 3px, rgba(0,0,0,.9) 4px);
@@ -40,19 +40,19 @@ html,body{
 #vignette{
   position:absolute; inset:0;
   background:radial-gradient(ellipse at center,
-    rgba(0,0,0,0) 45%, rgba(0,0,0,.25) 78%, rgba(0,0,0,.72) 100%);
+    rgba(0,0,0,0) 40%, rgba(0,0,0,.32) 74%, rgba(0,0,0,.82) 100%);
 }
 #flash{
   position:absolute; inset:0; background:#fff; opacity:0;
-  transition:opacity .09s linear;
+  transition:opacity .06s linear;
 }
 #flash.hit{ background:#ff0033; }
 #flash.invert{ background:#fff; mix-blend-mode:difference; }
 #game.shake #scene{ will-change:transform; }
-#game.rgbsplit #scene{ animation:rgb 0.14s steps(2) 2; }
+#game.rgbsplit #scene{ animation:rgb 0.12s steps(2) 3; }
 @keyframes rgb{
   0%{ filter:none; transform:translate(0,0); }
-  50%{ filter:drop-shadow(3px 0 #ff0044) drop-shadow(-3px 0 #00e5ff); transform:translate(-2px,0); }
+  50%{ filter:drop-shadow(6px 0 #ff0044) drop-shadow(-6px 0 #00e5ff); transform:translate(-4px,0); }
   100%{ filter:none; transform:translate(0,0); }
 }
 
